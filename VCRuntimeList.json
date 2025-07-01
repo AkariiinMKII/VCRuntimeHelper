@@ -90,5 +90,13 @@
             "url": "https://download.microsoft.com/download/8/4/a/84a35bf1-dafe-4ae8-82af-ad2ae20b6b14/directx_jun2010_redist.exe",
             "hash": "053f76dcbb28802e23341b6a787e3b0791c0fa5c8d4d011b1044172dbf89c73b"
         }
+    ],
+    "vstor": [
+        {
+            "name": "vstor_redist_2010",
+            "friendlyname": "Microsoft Visual Studio 2010 Tools for Office Runtime",
+            "url": "https://download.microsoft.com/download/5/d/2/5d24f8f8-efbb-4b63-aa33-3785e3104713/vstor_redist.exe",
+            "hash": "cfe1a40bbe4a50022db2164abdb0154984e2cecb761a23cdc81cb5754f6e0a18"
+        }
     ]
 }

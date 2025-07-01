@@ -29,8 +29,10 @@ foreach ($Package in $InstallList) {
             $Result = Start-Process -FilePath "$PackageDir\DXSETUP.exe" -ArgumentList "/silent" -Wait -PassThru
         } elseif (($FileName -like "*2005*") -or ($FileName -like "*2008*")) {
             $Result = Start-Process -FilePath $FilePath -ArgumentList "/q" -Wait -PassThru
+        } elseif (($FileName -like "*2010*") -or ($FileName -like "vstor*")) {
+            $Result = Start-Process -FilePath $FilePath -ArgumentList "/q /norestart" -Wait -PassThru
         } else {
-            $Result = Start-Process -FilePath $FilePath -ArgumentList "/quiet /norestart" -Wait -PassThru
+            $Result = Start-Process -FilePath $FilePath -ArgumentList "/install /quiet /norestart" -Wait -PassThru
         }
 
         if ($Result.ExitCode -eq 0) {

@@ -97,6 +97,7 @@ if ($DownloadList.Count -eq 0) {
 }
 
 $DownloadList += $PackageList."directx"
+$DownloadList += $PackageList."vstor"
 
 # Prepare temporary directory
 $TempPath = Join-Path -Path $env:TEMP -ChildPath (("vcrth_", [guid]::NewGuid().ToString()) -join "")
