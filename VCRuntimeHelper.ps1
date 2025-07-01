@@ -116,13 +116,13 @@ foreach ($Package in $DownloadList) {
     $PackageDir = Join-Path -Path $TempPath -ChildPath $Package.name
     $FilePath = Join-Path -Path $PackageDir -ChildPath $FileName
     $PackageUrl = $Package.url
-    $FileHash = $Package.hash
+    $FileHash = ($Package.hash).ToLower()
     [int]$TryCount = 0
 
     while ($TryCount -le 3) {
         New-TempDirectory -Path $PackageDir
         if ($TryCount -gt 0) {
-            Write-Host "Retrying... attempt $TryCount" -ForegroundColor Yellow -NoNewline
+            Write-Host "Retry attempt $TryCount/3, downloading..." -ForegroundColor Yellow -NoNewline
         } else {
             Write-Host "Downloading package: $Name..." -NoNewline
         }
