@@ -6,7 +6,7 @@ if (-Not (Test-Path $TempPath)) {
 }
 Get-ChildItem -Path $TempPath -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
 
-"x86", "amd64", "arm64", "directx" | ForEach-Object {
+"x86", "x64", "arm64", "directx" | ForEach-Object {
     $PackageList.$_ | ForEach-Object {
         $FileName = ($_.name, ".exe") -join ""
         $FilePath = Join-Path -Path $TempPath -ChildPath $FileName
