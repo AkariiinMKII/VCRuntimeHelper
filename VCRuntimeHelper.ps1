@@ -50,43 +50,6 @@ function Get-Aria2Path {
     }
 }
 
-function Get-GsudoPath {
-    param (
-        [string]$Path,
-        [bool]$SystemIs64Bit,
-        [bool]$CPUIsARM
-    )
-
-    Write-Host "`nPreparing gsudo..." -ForegroundColor Yellow
-    if (Get-Command "gsudo" -ErrorAction SilentlyContinue) {
-        if ((Get-Command "gsudo").CommandType -eq "Module") {
-            Write-Host "Using gsudo in PSModule" -ForegroundColor Yellow
-            return "gsudo"
-        } else {
-            $gsudoPath = (Get-Command "gsudo").Source
-        }
-    } else {
-        $gsudoUrls = Get-GitHubDownloadUrl -Uri "https://api.github.com/repos/gerardog/gsudo/releases/latest"
-        $gsudoUrl = $gsudoUrls | Where-Object { $_ -like "*portable.zip" }
-        $gsudoZip = Join-Path -Path $Path -ChildPath "gsudo.zip"
-        if ($SystemIs64Bit -and (-not $CPUIsARM)) {
-            $gsudoArch = "x64"
-        } elseif ($SystemIs64Bit -and $CPUIsARM) {
-            $gsudoArch = "arm64"
-        } else {
-            $gsudoArch = "x86"
-        }
-        Invoke-WebRequest -Uri $gsudoUrl -OutFile $gsudoZip
-        Expand-Archive -Path $gsudoZip -DestinationPath "$Path\gsudo" -Force
-        Remove-Item -Path $gsudoZip -Force
-        $gsudoPath = (Get-ChildItem -Path "$Path\gsudo\$gsudoArch" -Recurse | Where-Object { $_.Name -like "gsudo.exe" } | Select-Object -First 1).FullName
-    }
-    if ($gsudoPath) {
-        Write-Host "Using gsudo in $gsudoPath"
-        return $gsudoPath
-    }
-}
-
 function Get-GitHubDownloadUrl {
     param (
         [string]$Uri
@@ -100,43 +63,10 @@ function Get-GitHubDownloadUrl {
     return $UrlList
 }
 
-function Install-VCRTPackages {
-    param (
-        [array]$List,
-        [string]$TempPath
-    )
-    $SuccessList = @()
-    foreach ($Package in $List) {
-        $Name = $Package.friendlyname
-        $FileName = ($Package.name, ".exe") -join ""
-        $PackageDir = Join-Path -Path $TempPath -ChildPath $Package.name
-        $FilePath = Join-Path -Path $PackageDir -ChildPath $FileName
-
-        Write-Host "Installing package: $Name..." -NoNewline
-        try {
-            if ($FileName -like "directx*") {
-                Start-Process -FilePath $FilePath -ArgumentList "/Q /T:`"$PackageDir`"" -Wait
-                Start-Process -FilePath "$PackageDir\DXSETUP.exe" -ArgumentList "/silent" -Wait
-            } elseif (($FileName -like "*2005*") -or ($FileName -like "*2008*")) {
-                Start-Process -FilePath $FilePath -ArgumentList "/q" -Wait
-            } else {
-                Start-Process -FilePath $FilePath -ArgumentList "/quiet /norestart" -Wait
-            }
-            
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "success" -ForegroundColor Green
-                $SuccessList += $Name
-            }
-        } catch {
-            Write-Host $_.Exception.Message -ForegroundColor Red
-        }
-    }
-    return $SuccessList
-}
-
 # Main script execution starts here
 
 $RemoteList = "https://raw.githubusercontent.com/AkariiinMKII/VCRuntimeHelper/refs/heads/main/VCRuntimeList.json"
+$RemoteInstaller = "https://raw.githubusercontent.com/AkariiinMKII/VCRuntimeHelper/refs/heads/main/VCRuntimeInstaller.ps1"
 
 $PackageList = Invoke-RestMethod -Uri $RemoteList
 $DownloadList = @()
@@ -177,9 +107,6 @@ New-TempDirectory -Path $TempPath
 # Prepare aria2c command
 $aria2cPath = Get-Aria2Path -Path $TempPath -SystemIs64Bit $SystemIs64Bit -CPUIsARM $CPUIsARM
 
-#Prepare gsudo
-$gsudoPath = Get-GsudoPath -Path $TempPath -SystemIs64Bit $SystemIs64Bit -CPUIsARM $CPUIsARM
-
 # Download and verify packages
 Write-Host "`nStart downloading packages..." -ForegroundColor Yellow
 foreach ($Package in $DownloadList) {
@@ -198,7 +125,7 @@ foreach ($Package in $DownloadList) {
         } else {
             Write-Host "Downloading package: $Name..." -NoNewline
         }
-        
+
         if ($aria2cPath -And ($TryCount -lt 3)) {
             $aria2cCommand = "& `"$aria2cPath`" --allow-overwrite=true --retry-wait=5 --max-connection-per-server=8 --split=8 --min-split-size=1M --continue=true --quiet=true --dir=`"$PackageDir`" --out=`"$FileName`" `"$PackageUrl`""
             Invoke-Expression $aria2cCommand
@@ -230,22 +157,25 @@ foreach ($Package in $DownloadList) {
 }
 
 # Install packages
-Write-Host "`nStart installing packages..." -ForegroundColor Yellow
 if ($InstallList.Count -eq 0) {
     Write-Host "No packages to install, passing..." -ForegroundColor Yellow
     exit
+} else {
+    Write-Host "`nStart installing packages..." -ForegroundColor Yellow
 }
 
-if ($gsudoPath) {
-    Write-Host "Using gsudo for installation..." -ForegroundColor Yellow
-    Write-Host "Approve the UAC prompt to continue." -ForegroundColor Yellow
-    Start-Sleep -Seconds 2
-    $SuccessList = (& $gsudoPath Install-VCRTPackages -List $InstallList -TempPath $TempPath)
-} else {
-    Write-Host "gsudo not found, running installations with manual elevation." -ForegroundColor Yellow
-    Write-Host "Approve the UAC prompt each time to continue." -ForegroundColor Yellow
-    Start-Sleep -Seconds 2
-    $SuccessList = Install-VCRTPackages -List $InstallList -TempPath $TempPath
+$InstallListPath = Join-Path -Path $TempPath -ChildPath "InstallList.json"
+$InstallList | ConvertTo-Json | Set-Content -Path $InstallListPath
+
+$InstallerPath = Join-Path -Path $TempPath -ChildPath "VCRuntimeInstaller.ps1"
+Invoke-RestMethod -Uri $RemoteInstaller -OutFile $InstallerPath
+Write-Host "Approve UAC prompt to continue installation." -ForegroundColor Yellow
+Start-Sleep -Seconds 2
+Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$InstallerPath`" -Path `"$TempPath`"" -Wait
+
+$SuccessListPath = Join-Path -Path $TempPath -ChildPath "SuccessList.json"
+if (Test-Path -Path $SuccessListPath) {
+    $SuccessList = Get-Content -Path $SuccessListPath | ConvertFrom-Json
 }
 
 foreach ($Package in $DownloadList) {
@@ -269,11 +199,18 @@ if ($FailedList.Count -gt 0) {
     Write-Host "`n================ Packages Failed ================"
     $FailedList | ForEach-Object { Write-Host "$_" }
 } else {
-    Write-Host "All packages installed successfully!" -ForegroundColor Green
+    Write-Host "`nAll packages installed successfully!" -ForegroundColor Green
 }
 
 # Clean up temporary files
 if (Test-Path $TempPath) {
-    Write-Host "`nCleaning up temporary files..."
+    Write-Host "`nCleaning up temporary files..." -NoNewline
     Remove-Item -Path $TempPath -Recurse -Force
+
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "done" -ForegroundColor Green
+    } else {
+        Write-Host "failed" -ForegroundColor Red
+        Write-Host "Please manually delete the temporary directory."
+    }
 }
