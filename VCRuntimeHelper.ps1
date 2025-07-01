@@ -79,25 +79,37 @@ $FailedList = @()
 # $DownloadList += $PackageList."x86"
 # $DownloadList += $PackageList."x64"
 # $DownloadList += $PackageList."arm64"
+# $DownloadList += $PackageList."directx"
+# $DownloadList += $PackageList."vstor"
 
 # Determine system architecture
 [bool]$SystemIs64Bit = (Get-WmiObject -Class Win32_OperatingSystem).OSArchitecture -like "*64*"
 [bool]$CPUIsARM = $Env:PROCESSOR_ARCHITECTURE -like "*ARM*"
 
+$OSVersion = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -ExpandProperty Version
+
 # Auto generate download list based on system architecture
 if ($DownloadList.Count -eq 0) {
     if ($SystemIs64Bit) {
-        Write-Host "Detected x64 system architecture." -ForegroundColor Yellow
-        $DownloadList += $PackageList."x64"
-        $DownloadList += $PackageList."x86"
+        if ($CPUIsARM -and ($OSVersion -lt "10.0.22000")) {
+            # Add arm64 packages for Windows 10 ARM
+            Write-Host "Detected 64-bit system architecture with Windows 10 ARM." -ForegroundColor Yellow
+            $DownloadList += $PackageList."arm64"
+        } else {
+            # Add x64 packages for other x64 systems
+            Write-Host "Detected 64-bit system architecture." -ForegroundColor Yellow
+            $DownloadList += $PackageList."x64"
+        }
     } else {
-        Write-Host "Detected x86 system architecture." -ForegroundColor Yellow
-        $DownloadList += $PackageList."x86"
+        Write-Host "Detected 32-bit system architecture." -ForegroundColor Yellow
     }
-}
+    # Always add x86 packages
+    $DownloadList += $PackageList."x86"
 
-$DownloadList += $PackageList."directx"
-$DownloadList += $PackageList."vstor"
+    # Add other packages
+    $DownloadList += $PackageList."directx"
+    $DownloadList += $PackageList."vstor"
+}
 
 # Prepare temporary directory
 $TempPath = Join-Path -Path $env:TEMP -ChildPath (("vcrth_", [guid]::NewGuid().ToString()) -join "")
