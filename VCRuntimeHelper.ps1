@@ -25,15 +25,15 @@ function Remove-TempDirectory {
     )
 
     if (Test-Path $Path) {
-        Write-Host "`nCleaning up temporary files..." -NoNewline
+        Write-Host "`nCleaning up temporary files... " -ForegroundColor Yellow -NoNewline
         Remove-Item -Path $Path -Recurse -Force
     }
     if ($LASTEXITCODE -eq 0) {
         Write-Host "done" -ForegroundColor Green
     } else {
         Write-Host "failed" -ForegroundColor Red
-        Write-Host "Please manually delete the temporary directory:" -ForegroundColor Yellow
-        Write-Host $Path -ForegroundColor Yellow
+        Write-Host "Please manually delete the temporary directory:"
+        Write-Host "`"$Path`""
     }
 }
 
@@ -44,7 +44,7 @@ function Get-Aria2Path {
         [bool]$CPUIsARM
     )
 
-    Write-Host "`nPreparing aria2..." -ForegroundColor Yellow
+    Write-Host "`nPreparing aria2... " -ForegroundColor Yellow -NoNewline
     if (Get-Command "aria2c" -ErrorAction SilentlyContinue) {
         $aria2cPath = (Get-Command "aria2c").Source
     } else {
@@ -63,8 +63,12 @@ function Get-Aria2Path {
         $aria2cPath = (Get-ChildItem -Path $Path -Recurse | Where-Object { $_.Name -like "aria2c.exe" } | Select-Object -First 1).FullName
     }
     if ($aria2cPath) {
-        Write-Host "Using aria2c in $aria2cPath"
+        Write-Host "done" -ForegroundColor Green
+        Write-Host "Using aria2c at `"$aria2cPath`""
         return $aria2cPath
+    } else {
+        Write-Host "failed" -ForegroundColor Red
+        Write-Host "Falling back to Invoke-WebRequest."
     }
 }
 
@@ -81,19 +85,39 @@ function Get-GitHubDownloadUrl {
     return $UrlList
 }
 
+function Invoke-FailExit {
+    Write-Host "failed" -ForegroundColor Red
+    Write-Host "Exiting script execution..." -ForegroundColor Yellow
+    exit 1
+}
+
 ############################################################################
 # Main script execution starts here
 
+# Initialize script variables
 $RemoteList = "https://raw.githubusercontent.com/AkariiinMKII/VCRuntimeHelper/refs/heads/main/VCRuntimeList.json"
 $RemoteInstaller = "https://raw.githubusercontent.com/AkariiinMKII/VCRuntimeHelper/refs/heads/main/VCRuntimeInstaller.ps1"
 
-$PackageList = Invoke-RestMethod -Uri $RemoteList
+Write-Host "`nRequesting package list... " -ForegroundColor Yellow -NoNewline
+
+try {
+    $PackageList = Invoke-RestMethod -Uri $RemoteList
+} catch {
+    Invoke-FailExit
+}
+
+if (-not [string]::IsNullOrWhiteSpace($PackageList)) {
+    Write-Host "done" -ForegroundColor Green
+} else {
+    Invoke-FailExit
+}
+
 $DownloadList = @()
 $InstallList = @()
 $SuccessList = @()
 $FailedList = @()
 
-# Specify architecture-specific packages
+# Arch-specific packages
 # Uncomment to specify packages to install
 # $DownloadList += $PackageList."x86"
 # $DownloadList += $PackageList."x64"
@@ -101,26 +125,26 @@ $FailedList = @()
 # $DownloadList += $PackageList."directx"
 # $DownloadList += $PackageList."vstor"
 
-# Determine system architecture
+# Determine system environment
 [bool]$SystemIs64Bit = (Get-WmiObject -Class Win32_OperatingSystem).OSArchitecture -like "*64*"
 [bool]$CPUIsARM = $Env:PROCESSOR_ARCHITECTURE -like "*ARM*"
-
 $OSVersion = Get-CimInstance -ClassName Win32_OperatingSystem | Select-Object -ExpandProperty Version
 
-# Auto generate download list based on system architecture
+# Auto generate download list based on system environment
 if ($DownloadList.Count -eq 0) {
+    Write-Host "`nNo packages specified, generating installation list based on system environment..." -ForegroundColor Yellow
     if ($SystemIs64Bit) {
         if ($CPUIsARM -and ($OSVersion -lt "10.0.22000")) {
             # Add arm64 packages for Windows 10 ARM
-            Write-Host "Detected 64-bit system architecture with Windows 10 ARM." -ForegroundColor Yellow
+            Write-Host "Detected 64-bit system architecture with Windows 10 ARM."
             $DownloadList += $PackageList."arm64"
         } else {
             # Add x64 packages for other x64 systems
-            Write-Host "Detected 64-bit system architecture." -ForegroundColor Yellow
+            Write-Host "Detected 64-bit system architecture."
             $DownloadList += $PackageList."x64"
         }
     } else {
-        Write-Host "Detected 32-bit system architecture." -ForegroundColor Yellow
+        Write-Host "Detected 32-bit system architecture."
     }
     # Always add x86 packages
     $DownloadList += $PackageList."x86"
@@ -132,9 +156,14 @@ if ($DownloadList.Count -eq 0) {
 
 # Prepare temporary directory
 $TempPath = Join-Path -Path $env:TEMP -ChildPath (("vcrth_", [guid]::NewGuid().ToString()) -join "")
-Write-Host "`nPreparing temporary directory..." -ForegroundColor Yellow
-Write-Host "Using path $TempPath"
+Write-Host "`nPreparing temporary directory... " -ForegroundColor Yellow -NoNewline
 New-TempDirectory -Path $TempPath
+if (Test-Path -Path $TempPath) {
+    Write-Host "done" -ForegroundColor Green
+} else {
+    Invoke-FailExit
+}
+Write-Host "Using path `"$TempPath\`""
 
 # Prepare aria2c command
 $aria2cPath = Get-Aria2Path -Path $TempPath -SystemIs64Bit $SystemIs64Bit -CPUIsARM $CPUIsARM
@@ -153,9 +182,9 @@ foreach ($Package in $DownloadList) {
     while ($TryCount -le 3) {
         New-TempDirectory -Path $PackageDir
         if ($TryCount -gt 0) {
-            Write-Host "Retry attempt $TryCount/3, downloading..." -ForegroundColor Yellow -NoNewline
+            Write-Host "Retry attempt $TryCount/3, downloading... " -ForegroundColor Yellow -NoNewline
         } else {
-            Write-Host "Downloading package: $Name..." -NoNewline
+            Write-Host "Downloading package:  $Name... " -NoNewline
         }
 
         if ($aria2cPath -And ($TryCount -lt 3)) {
@@ -175,10 +204,10 @@ foreach ($Package in $DownloadList) {
             continue
         }
 
-        Write-Host "Checking file hash: $Name..." -NoNewline
+        Write-Host "Checking file hash :  $Name... " -NoNewline
         $CalculatedHash = (Get-FileHash -Path $FilePath -Algorithm SHA256 | Select-Object -ExpandProperty Hash).ToLower()
         if ($CalculatedHash -eq $FileHash) {
-            Write-Host "passed" -ForegroundColor Green
+            Write-Host "pass" -ForegroundColor Green
             $InstallList += $Package
             break
         } else {
@@ -188,14 +217,21 @@ foreach ($Package in $DownloadList) {
     }
 }
 
-# Install packages
+# Check download results
 if ($InstallList.Count -eq 0) {
     Write-Host "`nAll package downloads failed, skipping installation..." -ForegroundColor Yellow
     Remove-TempDirectory -Path $TempPath
-    exit
+    exit 1
 } else {
-    Write-Host "`nStart installing packages..." -ForegroundColor Yellow
+    Write-Host "`nSuccessfully downloaded " -NoNewline
+    Write-Host "$($InstallList.Count) " -ForegroundColor Green -NoNewline
+    Write-Host "of " -NoNewline
+    Write-Host "$($DownloadList.Count) " -ForegroundColor Yellow -NoNewline
+    Write-Host "packages."
 }
+
+# Install packages
+Write-Host "`nStart installing packages..." -ForegroundColor Yellow
 
 $InstallListPath = Join-Path -Path $TempPath -ChildPath "InstallList.json"
 $InstallList | ConvertTo-Json | Set-Content -Path $InstallListPath
@@ -204,8 +240,10 @@ $InstallerPath = Join-Path -Path $TempPath -ChildPath "VCRuntimeInstaller.ps1"
 Invoke-RestMethod -Uri $RemoteInstaller -OutFile $InstallerPath
 Write-Host "Approve UAC prompt to continue installation." -ForegroundColor Yellow
 Start-Sleep -Seconds 2
+Write-Host "`nDo not close this window until the entire script is finished!" -ForegroundColor DarkRed -BackgroundColor Yellow
 Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$InstallerPath`" -Path `"$TempPath`"" -Wait
 
+# Check installation results
 $SuccessListPath = Join-Path -Path $TempPath -ChildPath "SuccessList.json"
 if (Test-Path -Path $SuccessListPath) {
     $SuccessList = Get-Content -Path $SuccessListPath | ConvertFrom-Json
@@ -218,18 +256,21 @@ foreach ($Package in $DownloadList) {
 }
 
 # Output installation summary
-Write-Host "`n================ Installation Summary ================"
-Write-Host "Total packages attempted: $($DownloadList.Count)"
-Write-Host "Total packages installed: $($SuccessList.Count)"
-Write-Host "Total packages failed: $($FailedList.Count)"
-Write-Host "`n================ Packages Installed ================"
+Write-Host "`n============== Installation Summary =============="
+Write-Host "Total packages attempted: " -NoNewline
+Write-Host "$($DownloadList.Count)" -ForegroundColor Yellow
+Write-Host "Total packages installed: " -NoNewline
+Write-Host "$($SuccessList.Count)" -ForegroundColor Green
+Write-Host "Total packages failed   : " -NoNewline
+Write-Host "$($FailedList.Count)" -ForegroundColor Red
+Write-Host "`n=============== Packages Installed ==============="
 if ($SuccessList.Count -gt 0) {
     $SuccessList | ForEach-Object { Write-Host "$_" }
 } else {
     Write-Host "No packages were installed successfully." -ForegroundColor Red
 }
 if ($FailedList.Count -gt 0) {
-    Write-Host "`n================ Packages Failed ================"
+    Write-Host "`n================ Packages Failed ================="
     $FailedList | ForEach-Object { Write-Host "$_" }
 } else {
     Write-Host "`nAll packages installed successfully!" -ForegroundColor Green
@@ -237,3 +278,7 @@ if ($FailedList.Count -gt 0) {
 
 # Clean up temporary files
 Remove-TempDirectory -Path $TempPath
+
+# Final message before exit
+Read-Host "`nScript execution completed. Press any key to exit"
+exit 0

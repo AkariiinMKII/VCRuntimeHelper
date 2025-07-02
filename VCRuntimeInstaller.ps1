@@ -18,7 +18,7 @@ foreach ($Package in $InstallList) {
     $PackageDir = Join-Path -Path $Path -ChildPath $Package.name
     $FilePath = Join-Path -Path $PackageDir -ChildPath $FileName
 
-    Write-Host "Installing package: $Name..." -NoNewline
+    Write-Host "Installing package:  $Name... " -NoNewline
     try {
         if (-not (Test-Path -Path $FilePath)) {
             Write-Host "error: file not found" -ForegroundColor Red
