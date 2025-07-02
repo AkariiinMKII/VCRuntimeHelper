@@ -19,6 +19,24 @@ function New-TempDirectory {
     }
 }
 
+function Remove-TempDirectory {
+    param (
+        [string]$Path
+    )
+
+    if (Test-Path $Path) {
+        Write-Host "`nCleaning up temporary files..." -NoNewline
+        Remove-Item -Path $Path -Recurse -Force
+    }
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "done" -ForegroundColor Green
+    } else {
+        Write-Host "failed" -ForegroundColor Red
+        Write-Host "Please manually delete the temporary directory:" -ForegroundColor Yellow
+        Write-Host $Path -ForegroundColor Yellow
+    }
+}
+
 function Get-Aria2Path {
     param (
         [string]$Path,
@@ -63,6 +81,7 @@ function Get-GitHubDownloadUrl {
     return $UrlList
 }
 
+############################################################################
 # Main script execution starts here
 
 $RemoteList = "https://raw.githubusercontent.com/AkariiinMKII/VCRuntimeHelper/refs/heads/main/VCRuntimeList.json"
@@ -171,7 +190,8 @@ foreach ($Package in $DownloadList) {
 
 # Install packages
 if ($InstallList.Count -eq 0) {
-    Write-Host "No packages to install, passing..." -ForegroundColor Yellow
+    Write-Host "`nAll package downloads failed, skipping installation..." -ForegroundColor Yellow
+    Remove-TempDirectory -Path $TempPath
     exit
 } else {
     Write-Host "`nStart installing packages..." -ForegroundColor Yellow
@@ -216,14 +236,4 @@ if ($FailedList.Count -gt 0) {
 }
 
 # Clean up temporary files
-if (Test-Path $TempPath) {
-    Write-Host "`nCleaning up temporary files..." -NoNewline
-    Remove-Item -Path $TempPath -Recurse -Force
-
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "done" -ForegroundColor Green
-    } else {
-        Write-Host "failed" -ForegroundColor Red
-        Write-Host "Please manually delete the temporary directory."
-    }
-}
+Remove-TempDirectory -Path $TempPath
