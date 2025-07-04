@@ -1,6 +1,6 @@
 $PackageList = Get-Content .\VCRuntimeList.json | ConvertFrom-Json
 
-$TempPath = "$env:TEMP\VCRuntimeHelper"
+$TempPath = Join-Path -Path $env:TEMP -ChildPath (("vcrh_phu_", [guid]::NewGuid().ToString()) -join "")
 if (-Not (Test-Path $TempPath)) {
     New-Item -Path $TempPath -ItemType Directory | Out-Null
 }

@@ -164,7 +164,7 @@ if ($DownloadList.Count -eq 0) {
 }
 
 # Prepare temporary directory
-$TempPath = Join-Path -Path $env:TEMP -ChildPath (("vcrth_", [guid]::NewGuid().ToString()) -join "")
+$TempPath = Join-Path -Path $env:TEMP -ChildPath (("vcrh_", [guid]::NewGuid().ToString()) -join "")
 Write-Host "`nPreparing temporary directory... " -ForegroundColor Yellow -NoNewline
 New-TempDirectory -Path $TempPath
 if (Test-Path -Path $TempPath) {
