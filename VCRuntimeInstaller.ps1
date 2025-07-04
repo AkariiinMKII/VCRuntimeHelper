@@ -26,16 +26,16 @@ foreach ($Package in $InstallList) {
         }
         if ($FileName -like "directx*") {
             Start-Process -FilePath $FilePath -ArgumentList "/Q /T:`"$PackageDir`"" -Wait
-            $Result = Start-Process -FilePath "$PackageDir\DXSETUP.exe" -ArgumentList "/silent" -Wait -PassThru
+            $InstallResult = Start-Process -FilePath "$PackageDir\DXSETUP.exe" -ArgumentList "/silent" -Wait -PassThru
         } elseif (($FileName -like "*2005*") -or ($FileName -like "*2008*")) {
-            $Result = Start-Process -FilePath $FilePath -ArgumentList "/q" -Wait -PassThru
+            $InstallResult = Start-Process -FilePath $FilePath -ArgumentList "/q" -Wait -PassThru
         } elseif (($FileName -like "*2010*") -or ($FileName -like "vstor*")) {
-            $Result = Start-Process -FilePath $FilePath -ArgumentList "/q /norestart" -Wait -PassThru
+            $InstallResult = Start-Process -FilePath $FilePath -ArgumentList "/q /norestart" -Wait -PassThru
         } else {
-            $Result = Start-Process -FilePath $FilePath -ArgumentList "/install /quiet /norestart" -Wait -PassThru
+            $InstallResult = Start-Process -FilePath $FilePath -ArgumentList "/install /quiet /norestart" -Wait -PassThru
         }
 
-        if ($Result.ExitCode -eq 0) {
+        if ($InstallResult.ExitCode -eq 0) {
             Write-Host "success" -ForegroundColor Green
             $SuccessList += $Name
         } else {
@@ -45,4 +45,5 @@ foreach ($Package in $InstallList) {
         Write-Host $_.Exception.Message -ForegroundColor Red
     }
 }
-$SuccessList | ConvertTo-Json | Set-Content -Path (Join-Path -Path $Path -ChildPath "SuccessList.json")
+$SuccessListPath = Join-Path -Path $Path -ChildPath "SuccessList.json"
+$SuccessList | ConvertTo-Json | Set-Content -Path $SuccessListPath

@@ -26,14 +26,16 @@ function Remove-TempDirectory {
 
     if (Test-Path $Path) {
         Write-Host "`nCleaning up temporary files... " -ForegroundColor Yellow -NoNewline
-        Remove-Item -Path $Path -Recurse -Force
-    }
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "done" -ForegroundColor Green
+        try {
+            Remove-Item -Path $Path -Recurse -Force -ErrorAction Stop
+            Write-Host "done" -ForegroundColor Green
+        } catch {
+            Write-Host "failed" -ForegroundColor Red
+            Write-Host "Please manually delete the temporary directory:"
+            Write-Host "`"$Path`""
+        }
     } else {
-        Write-Host "failed" -ForegroundColor Red
-        Write-Host "Please manually delete the temporary directory:"
-        Write-Host "`"$Path`""
+        Write-Host "`nTemporary directory not found, skipping cleanup..." -ForegroundColor Yellow
     }
 }
 
@@ -59,7 +61,7 @@ function Get-Aria2Path {
         $aria2cZip = Join-Path -Path $Path -ChildPath "aria2c.zip"
         Invoke-WebRequest -Uri $aria2cUrl -OutFile $aria2cZip
         Expand-Archive -Path $aria2cZip -DestinationPath $Path -Force
-        Remove-Item -Path $aria2cZip -Force
+        Remove-Item -Path $aria2cZip -Force -ErrorAction SilentlyContinue
         $aria2cPath = (Get-ChildItem -Path $Path -Recurse | Where-Object { $_.Name -like "aria2c.exe" } | Select-Object -First 1).FullName
     }
     if ($aria2cPath) {
@@ -86,7 +88,14 @@ function Get-GitHubDownloadUrl {
 }
 
 function Invoke-FailExit {
+    param (
+        [string]$TempPath
+    )
+
     Write-Host "failed" -ForegroundColor Red
+    if ($TempPath) {
+        Remove-TempDirectory -Path $TempPath
+    }
     Write-Host "Exiting script execution..." -ForegroundColor Yellow
     exit 1
 }
@@ -165,6 +174,16 @@ if (Test-Path -Path $TempPath) {
 }
 Write-Host "Using path `"$TempPath\`""
 
+ # Prepare installer script
+$InstallerPath = Join-Path -Path $TempPath -ChildPath "VCRuntimeInstaller.ps1"
+Write-Host "`nPreparing installer script... " -ForegroundColor Yellow -NoNewline
+try  {
+    Invoke-RestMethod -Uri $RemoteInstaller -OutFile $InstallerPath
+} catch {
+    Invoke-FailExit -TempPath $TempPath
+}
+Write-Host "done" -ForegroundColor Green
+
 # Prepare aria2c command
 $aria2cPath = Get-Aria2Path -Path $TempPath -SystemIs64Bit $SystemIs64Bit -CPUIsARM $CPUIsARM
 
@@ -192,8 +211,14 @@ foreach ($Package in $DownloadList) {
             Invoke-Expression $aria2cCommand
             $DownloadSuccess = $($LASTEXITCODE -eq 0)
         } else {
-            Invoke-WebRequest -Uri $PackageUrl -OutFile $FilePath
-            $DownloadSuccess = $($LASTEXITCODE -eq 0)
+            try {
+                Invoke-WebRequest -Uri $PackageUrl -OutFile $FilePath
+                $DownloadSuccess = $($LASTEXITCODE -eq 0)
+            } catch {
+                Write-Host "failed" -ForegroundColor Red
+                $TryCount++
+                continue
+            }
         }
 
         if ($DownloadSuccess) {
@@ -225,9 +250,7 @@ if ($InstallList.Count -eq 0) {
 } else {
     Write-Host "`nSuccessfully downloaded " -NoNewline
     Write-Host "$($InstallList.Count) " -ForegroundColor Green -NoNewline
-    Write-Host "of " -NoNewline
-    Write-Host "$($DownloadList.Count) " -ForegroundColor Yellow -NoNewline
-    Write-Host "packages."
+    Write-Host "of $($DownloadList.Count) packages."
 }
 
 # Install packages
@@ -236,12 +259,20 @@ Write-Host "`nStart installing packages..." -ForegroundColor Yellow
 $InstallListPath = Join-Path -Path $TempPath -ChildPath "InstallList.json"
 $InstallList | ConvertTo-Json | Set-Content -Path $InstallListPath
 
-$InstallerPath = Join-Path -Path $TempPath -ChildPath "VCRuntimeInstaller.ps1"
-Invoke-RestMethod -Uri $RemoteInstaller -OutFile $InstallerPath
-Write-Host "Approve UAC prompt to continue installation." -ForegroundColor Yellow
+Write-Host "`nInstallation requires administrative privileges." -ForegroundColor Yellow
+Write-Host "Approve UAC prompt to continue..." -ForegroundColor Yellow
 Start-Sleep -Seconds 2
-Write-Host "`nDo not close this window until the entire script is finished!" -ForegroundColor DarkRed -BackgroundColor Yellow
-Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$InstallerPath`" -Path `"$TempPath`"" -Wait
+Write-Host "`nDo not close this window until the entire script completes!" -ForegroundColor DarkRed -BackgroundColor Yellow
+try {
+    Start-Process powershell -Verb RunAs -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$InstallerPath`" -Path `"$TempPath`"" -Wait
+} catch {
+    Write-Host $_.Exception.Message -ForegroundColor Red
+    Remove-TempDirectory -Path $TempPath
+    Write-Host "Exiting script execution..." -ForegroundColor Yellow
+    exit 1
+}
+
+Write-Host "`nInstallation script finished." -ForegroundColor Yellow
 
 # Check installation results
 $SuccessListPath = Join-Path -Path $TempPath -ChildPath "SuccessList.json"
@@ -257,8 +288,7 @@ foreach ($Package in $DownloadList) {
 
 # Output installation summary
 Write-Host "`n============== Installation Summary =============="
-Write-Host "Total packages attempted: " -NoNewline
-Write-Host "$($DownloadList.Count)" -ForegroundColor Yellow
+Write-Host "Total packages attempted: $($DownloadList.Count)"
 Write-Host "Total packages installed: " -NoNewline
 Write-Host "$($SuccessList.Count)" -ForegroundColor Green
 Write-Host "Total packages failed   : " -NoNewline
@@ -273,12 +303,14 @@ if ($FailedList.Count -gt 0) {
     Write-Host "`n================ Packages Failed ================="
     $FailedList | ForEach-Object { Write-Host "$_" }
 } else {
-    Write-Host "`nAll packages installed successfully!" -ForegroundColor Green
+    Write-Host "`nCongratulations! All packages installed successfully!" -ForegroundColor Green
 }
 
 # Clean up temporary files
 Remove-TempDirectory -Path $TempPath
 
 # Final message before exit
-Read-Host "`nScript execution completed. Press any key to exit"
+Write-Host "`nScript execution completed." -ForegroundColor Yellow
+Write-Host "Press any key to exit..." -ForegroundColor Yellow
+$null = [System.Console]::ReadKey($true)
 exit 0
