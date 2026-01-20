@@ -34,7 +34,7 @@
             "name": "vcredist_2015_x86",
             "friendlyname": "Microsoft Visual C++ 2015-2022 Redistributable (x86)",
             "url": "https://aka.ms/vs/17/release/vc_redist.x86.exe",
-            "hash": "435a0de411b991e2bfc7fd1d5439639e7b32206960d3099370e36172018f52fe"
+            "hash": "0c09f2611660441084ce0df425c51c11e147e6447963c3690f97e0b25c55ed64"
         }
     ],
     "x64": [
@@ -72,7 +72,7 @@
             "name": "vcredist_2015_x64",
             "friendlyname": "Microsoft Visual C++ 2015-2022 Redistributable (x64)",
             "url": "https://aka.ms/vs/17/release/vc_redist.x64.exe",
-            "hash": "d62841375b90782b1829483ac75695ccef680a8f13e7de569b992ef33c6cd14a"
+            "hash": "cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b"
         }
     ],
     "arm64": [
@@ -80,14 +80,14 @@
             "name": "vcredist_2015_arm64",
             "friendlyname": "Microsoft Visual C++ 2015-2022 Redistributable (ARM64)",
             "url": "https://aka.ms/vs/17/release/vc_redist.arm64.exe",
-            "hash": "1db5c25643a3a4e4c99bfd0d0931a702a49c73dadc4b30672687f32188c1724c"
+            "hash": "5139e1440c3a20b92153a4db561c069a0175aaf76c276c3e5b6f56099edcf4b0"
         }
     ],
     "directx": [
         {
             "name": "directx_jun2010_redist",
             "friendlyname": "DirectX End-User Runtimes (June 2010)",
-            "url": "https://download.microsoft.com/download/8/4/a/84a35bf1-dafe-4ae8-82af-ad2ae20b6b14/directx_jun2010_redist.exe",
+            "url": "https://download.microsoft.com/download/8/4/a/84a35bf1-dafe-4ae8-82af-ad2ae20b6b14/directx_Jun2010_redist.exe",
             "hash": "053f76dcbb28802e23341b6a787e3b0791c0fa5c8d4d011b1044172dbf89c73b"
         }
     ],
@@ -95,8 +95,8 @@
         {
             "name": "vstor_redist_2010",
             "friendlyname": "Microsoft Visual Studio 2010 Tools for Office Runtime",
-            "url": "https://download.microsoft.com/download/5/d/2/5d24f8f8-efbb-4b63-aa33-3785e3104713/vstor_redist.exe",
-            "hash": "cfe1a40bbe4a50022db2164abdb0154984e2cecb761a23cdc81cb5754f6e0a18"
+            "url": "https://download.microsoft.com/download/8/6/4/8641e164-7796-4b34-81c7-30d24a5bd533/vstor_redist.exe",
+            "hash": "9511042eabb4123827d1799154b9b2754c8509ca742d4e1aea919084563f0b1e"
         }
     ]
 }
