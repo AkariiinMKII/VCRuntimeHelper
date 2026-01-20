@@ -42,9 +42,20 @@ if ($HashChanges -eq 0) {
     Write-Host "`nNo hash changes detected, skipping update..." -ForegroundColor Yellow
 } else {
     Write-Host "`n$HashChanges " -ForegroundColor Green -NoNewline
-    Write-Host "hash changes detected, updating package list..." -ForegroundColor Yellow
+    Write-Host "hash changes detected, updating package list..." -ForegroundColor Yellow -NoNewline
     $PackageList | ConvertTo-Json | Set-Content .\VCRuntimeList.json
+    Write-Host "Complete!" -ForegroundColor Green
+
+    Write-Host "`nFormatting JSON file with Prettier..." -ForegroundColor Yellow -NoNewline
+    if (Get-Command "npm" -ErrorAction SilentlyContinue) {
+        npx prettier --write --tab-width 4 --end-of-line crlf .\VCRuntimeList.json | Out-Null
+        Write-Host "Complete!" -ForegroundColor Green
+    } else {
+        Write-Host "npm not found."  -ForegroundColor Red
+        Write-Host "Please install Node.js and npm first." -ForegroundColor Yellow
+    }
 }
 
-Write-Host "`nCleaning up temporary files..." -ForegroundColor Yellow
+Write-Host "`nCleaning up temporary files..." -ForegroundColor Yellow -NoNewline
 Remove-Item -Path $TempPath -Recurse -Force -ErrorAction SilentlyContinue
+Write-Host "Complete!" -ForegroundColor Green
