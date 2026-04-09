@@ -10,6 +10,11 @@ Run following command in PowerShell:
 $VCRuntimeHelper = "https://raw.githubusercontent.com/AkariiinMKII/VCRuntimeHelper/refs/heads/main/VCRuntimeHelper.ps1"; irm $VCRuntimeHelper | iex
 ```
 
+> [!TIP]
+> For uers who failed run script, check the execution policy by running `Get-ExecutionPolicy` in PowerShell.
+> 
+> If it returns `Restricted`, change it to `RemoteSigned` by running `Set-ExecutionPolicy RemoteSigned` in PowerShell with administrator privileges, and then try running the installation command again.
+
 ## Package list
 
 ### x64 versions
